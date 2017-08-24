@@ -1,0 +1,10 @@
+{
+	"name": "raft",
+	"copyright": "Copyright © 2017, huntframework.com",
+	"homepage": "http://www.huntframework.com/",
+	"license": "BSD",	
+	"dependencies": {
+    	"common":{"path":"../common"}
+		}
+}
+

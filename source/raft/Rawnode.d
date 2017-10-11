@@ -28,7 +28,7 @@ class RawNode
 
 	bool isLeader()
 	{
-		return _prevHardSt.Vote == _raft._id;
+		return _raft._lead == _raft._id;
 	}
 
 	void commitReady(Ready rd)

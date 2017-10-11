@@ -1052,7 +1052,7 @@ class Raft
 			case MessageType.MsgHeartbeat:
 				_electionElapsed = 0;
 				_lead = m.From;
-				handleAppendEntries(m);
+				handleHeartbeat(m);
 				break;
 			case MessageType.MsgSnap:
 				_electionElapsed = 0;

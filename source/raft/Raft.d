@@ -726,7 +726,6 @@ class Raft
 				if(exist == null)
 					return;
 
-				log_info(m);
 				if(_leadTransferee != None)
 				{
 					log_debug(log_format("%x [term %d] transfer leadership to %x is in progress; dropping proposal",

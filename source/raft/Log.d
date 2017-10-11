@@ -333,7 +333,7 @@ class raftLog
 				log_error(err);
 			}
 
-			if(ents.length < min(hi , _unstable._offset) - lo)
+			if(store.length < min(hi , _unstable._offset) - lo)
 			{
 				ents = store;
 				return ErrNil;
@@ -345,7 +345,7 @@ class raftLog
 		if(hi > _unstable._offset)
 		{
 			Entry[] uns = _unstable.slice(max(lo , _unstable._offset) , hi);
-			if( uns.length > 0)
+			if( ents.length > 0)
 				ents ~= uns;
 			else
 				ents = uns;

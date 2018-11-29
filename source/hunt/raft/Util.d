@@ -1,14 +1,15 @@
-module raft.Util;
+module hunt.raft.Util;
 
-import protocol.Msg;
-import zhang2018.common.Log;
-import zhang2018.common.Serialize;
-import raft.Node;
+import hunt.raft.Msg;
+import hunt.raft.Node;
 
+import hunt.logging;
+import hunt.util.serialize;
+
+import std.format;
 
 immutable ulong None = 0;
 immutable noLimit = ulong.max;
-
 bool IsLocalMsg(MessageType msgt)
 {
 	return msgt == MessageType.MsgHup ||
@@ -36,7 +37,7 @@ MessageType voteRespMsgType(MessageType msgt)
 		case MessageType.MsgPreVote:
 			return MessageType.MsgPreVoteResp;
 		default:
-			log_error("not a vode message: " , msgt);
+			logError("not a vode message: " , msgt);
 			return msgt;
 	}
 
@@ -46,20 +47,20 @@ MessageType voteRespMsgType(MessageType msgt)
 
 string DescribeMessage(Message m)
 {
-	string str = log_format("%x->%x %s Term:%d Log:%d/%d" ,
+	string str = format("%x->%x %s Term:%d Log:%d/%d" ,
 		m.From , m.To , m.Type , m.Term , m.LogTerm , m.Index);
 	if( m.Reject )
 	{
 		str ~= " Rejected";
 		if( m.Reject != 0)
 		{
-			str ~= log_format("(Hint:%d)", m.RejectHint);
+			str ~= format("(Hint:%d)", m.RejectHint);
 		}
 	}
 
 	if ( m.Commit != 0)
 	{
-		str ~= log_format(" Commit:%d", m.Commit);
+		str ~= format(" Commit:%d", m.Commit);
 	}
 
 	if( m.Entries.length > 0)
@@ -87,7 +88,7 @@ string DescribeMessage(Message m)
 
 string DescribeEntry(Entry e)
 {
-	return log_format("%d/%d %s %s", e.Term, e.Index, e.Type , e.Data);
+	return format("%d/%d %s %s", e.Term, e.Index, e.Type , e.Data);
 }
 
 

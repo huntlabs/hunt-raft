@@ -1,9 +1,11 @@
-﻿module raft.Storage;
+﻿module hunt.raft.Storage;
 
-import protocol.Msg;
-import zhang2018.common.Log;
+import hunt.raft.Msg;
+import hunt.raft.Util;
 
-import raft.Util;
+import hunt.logging;
+
+
 
 enum ErrCompacted = "requested index is unavailable due to compaction";
 enum ErrSnapOutOfDate = "requested index is older than the existing snapshot";
@@ -58,7 +60,7 @@ class MemoryStorage : Storage
 			return ErrCompacted;
 
 		if( hi > lastIndex() + 1 )
-			log_error("entries' hi(" , hi , ") is out of bound lastindex(" , lastIndex() , ")");
+			logError("entries' hi(" , hi , ") is out of bound lastindex(" , lastIndex() , ")");
 			
 		if (_ents.length == 1)
 			return ErrUnavailable;
@@ -131,7 +133,7 @@ class MemoryStorage : Storage
 
 		auto offset = _ents[0].Index;
 		if ( i > lastIndex())
-			log_error("snapshot " , i , "is out of bound lastindex(" , lastIndex() , ")");
+			logError("snapshot " , i , "is out of bound lastindex(" , lastIndex() , ")");
 
 		_ss.Metadata.Index = i;
 		_ss.Metadata.Term = _ents[cast(uint)(i - offset)].Term;
@@ -150,7 +152,7 @@ class MemoryStorage : Storage
 			return ErrCompacted;
 
 		if(compactIndex > lastIndex())
-			log_error("compact ", compactIndex ," is out of bound lastindex(" , lastIndex() , ")");
+			logError("compact ", compactIndex ," is out of bound lastindex(" , lastIndex() , ")");
 
 		uint i = cast(uint)(compactIndex - offset);
 		Entry[] ents;
@@ -190,7 +192,7 @@ class MemoryStorage : Storage
 			_ents ~= entries;
 		}
 		else{
-			log_error("missing log entry [last:" ,lastIndex() ,
+			logError("missing log entry [last:" ,lastIndex() ,
 				", append at: " , entries[0].Index , "]");
 		}
 

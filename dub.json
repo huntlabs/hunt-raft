@@ -1,11 +1,11 @@
 {
-	"name": "raft",
+	"name": "hunt-raft",
 	"copyright": "Copyright © 2017, huntframework.com",
 	"homepage": "http://www.huntframework.com/",
 	"description": "Raft distributed consensus protocol in D programming language.",
 	"license": "Apache-2.0",	
 	"dependencies": {
-    	"common":{
-		"path":"../common"}
-	}
+    	"hunt":"~>1.0.0-rc.3"
+		}
 }
+

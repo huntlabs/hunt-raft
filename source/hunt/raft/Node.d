@@ -1,17 +1,18 @@
-﻿module raft.Node;
+﻿module hunt.raft.Node;
 
-import protocol.Msg;
-import raft.Storage;
-import raft.Raft;
-import raft.Read_only;
-import raft.Status;
+import hunt.raft.Msg;
+import hunt.raft.Storage;
+import hunt.raft.Raft;
+import hunt.raft.Readonly;
+import hunt.raft.Status;
+import hunt.raft.Util;
 
-import zhang2018.common.Serialize;
+import hunt.util.serialize;
+import hunt.logging;
 
 import std.container;
 
-import zhang2018.common.Log;
-import raft.Util;
+
 
 
 alias Context = Object;
@@ -242,19 +243,19 @@ class node : Node
 				{
 					if( lead == None)
 					{
-						log_info(log_format("raft.node: %x elected leader %x at term %d",
+						logInfo(format("raft.node: %x elected leader %x at term %d",
 								r._id, r._lead, r._Term));
 					}
 					else
 					{
-						log_info(log_format("raft.node: %x changed leader from %x to %x at term %d",
+						logInfo(format("raft.node: %x changed leader from %x to %x at term %d",
 								r._id, lead, r._lead, r._Term));
 					}
 					propc = &_propc;
 				}
 				else
 				{
-					log_info("raft.node: %x lost leader %x at term %d" , r._id , lead , r._Term);
+					logInfo("raft.node: %x lost leader %x at term %d" , r._id , lead , r._Term);
 					propc = null;
 				}
 
@@ -305,7 +306,7 @@ class node : Node
 							r.resetPendingConf();
 							break;
 						default:
-							log_error("unexpected conf type");
+							logError("unexpected conf type");
 					}
 					//next
 					ConfState cs = {Nodes:r.nodes()};

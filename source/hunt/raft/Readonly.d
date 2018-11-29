@@ -1,9 +1,10 @@
-﻿module raft.Read_only;
+﻿module hunt.raft.Readonly;
 
 
-import raft.Raft;
-import protocol.Msg;
-import zhang2018.common.Log;
+import hunt.raft.Raft;
+import hunt.raft.Msg;
+
+import hunt.logging;
 
 import std.experimental.allocator;
 
@@ -65,7 +66,7 @@ class readOnly
 			auto rs = v in _pendingReadIndex;
 			if( rs == null)
 			{
-				log_error("cannot find corresponding read state from pending map");
+				logError("cannot find corresponding read state from pending map");
 			}
 			rss ~=  *rs;
 			if( v == ctx)

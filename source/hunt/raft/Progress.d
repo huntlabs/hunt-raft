@@ -1,7 +1,9 @@
-﻿module raft.Progress;
+﻿module hunt.raft.Progress;
 
-import zhang2018.common.Log;
+import hunt.logging;
+
 import std.algorithm;
+import std.format;
 
 enum ProgressStateType
 {
@@ -39,7 +41,7 @@ class inflights
 	void add(ulong inflight)
 	{
 		if(full())
-			log_error("cannot add into a full inflights");
+			logError("cannot add into a full inflights");
 
 		auto next = _start + _count;
 		auto size = _size;
@@ -237,7 +239,7 @@ class Progress
 	}
 
 	override string toString() {
-		return log_format("next = %d, match = %d, state = %s, waiting = %d, pendingSnapshot = %d", _Next, _Match, _State, IsPaused(), _PendingSnapshot);
+		return format("next = %d, match = %d, state = %s, waiting = %d, pendingSnapshot = %d", _Next, _Match, _State, IsPaused(), _PendingSnapshot);
 	}
 
 }

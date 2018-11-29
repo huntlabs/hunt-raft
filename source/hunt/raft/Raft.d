@@ -1,18 +1,22 @@
-﻿module raft.Raft;
+﻿module hunt.raft.Raft;
 
-import raft.Storage;
-import raft.Read_only;
-import raft.Log;
-import raft.Progress;
-import protocol.Msg;
-import zhang2018.common.Log;
-import raft.Node;
+import hunt.raft.Storage;
+import hunt.raft.Readonly;
+import hunt.raft.Log;
+import hunt.raft.Progress;
+import hunt.raft.Msg;
+import hunt.raft.Util;
+import hunt.raft.Node;
+
+import hunt.logging;
+
 import std.algorithm;
 import std.algorithm.sorting;
-import raft.Util;
-import core.stdc.stdlib;
 import std.experimental.allocator;
 import std.conv;
+import std.format;
+
+import core.stdc.stdlib;
 
 enum StateType{
 	StateFollower = 0,
@@ -113,21 +117,21 @@ class Raft
 	{
 		auto err = c.validate();
 		if(err != ErrNil)
-			log_error(err);
+			logError(err);
 
 		_raftLog = new raftLog(c._storage);
 		HardState hs;
 		ConfState cs;
 		err =  c._storage.InitalState(hs , cs);
 		if(err != ErrNil)
-			log_error(err);
+			logError(err);
 
 		auto peers = c._peers;
 		if(cs.Nodes.length > 0)
 		{
 			if(peers.length > 0)
 			{
-				log_error("cannot specify both newRaft(peers) and ConfState.Nodes)");
+				logError("cannot specify both newRaft(peers) and ConfState.Nodes)");
 			}
 			peers = cs.Nodes;
 		}
@@ -172,7 +176,7 @@ class Raft
 
 		srand(cast(uint)(_id * _id));
 
-		log_info(log_format("newRaft %x [peers: [%s], term: %d, commit: %d, applied: %d, lastindex: %d, lastterm: %d]",
+		logInfo(format("newRaft %x [peers: [%s], term: %d, commit: %d, applied: %d, lastindex: %d, lastterm: %d]",
 				_id, nodestr, _Term, _raftLog._committed, _raftLog._applied,
 				_raftLog.lastIndex(), _raftLog.lastTerm()));
 
@@ -216,14 +220,14 @@ class Raft
 		{
 			if(m.Term == 0)
 			{
-				log_error(log_format("term should be set when sending %s", m.Type));
+				logError(format("term should be set when sending %s", m.Type));
 			}
 		}
 		else
 		{
 			if(m.Term != 0)
 			{
-				log_error(log_format("term should not be set when sending %s (was %d)", m.Type, m.Term));
+				logError(format("term should not be set when sending %s (was %d)", m.Type, m.Term));
 			}
 
 			if( m.Type != MessageType.MsgProp && m.Type != MessageType.MsgReadIndex)
@@ -252,7 +256,7 @@ class Raft
 		{
 			if( !pr._RecentActive )
 			{
-				log_debug(log_format("ignore sending snapshot to %x since it is not recently active", to));
+				logDebug(format("ignore sending snapshot to %x since it is not recently active", to));
 				return;
 			}
 
@@ -263,27 +267,27 @@ class Raft
 			{
 				if( err == ErrSnapshotTemporarilyUnavailable )
 				{
-					log_debug(log_format("%x failed to send snapshot to %x because snapshot is temporarily unavailable", _id, to));
+					logDebug(format("%x failed to send snapshot to %x because snapshot is temporarily unavailable", _id, to));
 					return ;
 				}
 
-				log_error(err);
+				logError(err);
 			}
 
 			if (IsEmptySnap(snap))
 			{
-				log_error("need non-empty snapshot");
+				logError("need non-empty snapshot");
 			}
 
 			m.snap = snap;
 			auto sindex = snap.Metadata.Index;
 			auto sterm = snap.Metadata.Term;
 
-			log_debug(log_format("%d [firstindex: %d, commit: %d] sent snapshot[index: %d, term: %d] to %x [%s]",
+			logDebug(format("%d [firstindex: %d, commit: %d] sent snapshot[index: %d, term: %d] to %x [%s]",
 					_id, _raftLog.firstIndex(), _raftLog._committed, sindex, sterm, to, pr));
 
 			pr.becomeSnapshot(sindex);
-			log_debug("%x paused sending replication messages to %x [%s]", _id, to, pr);
+			logDebug("%x paused sending replication messages to %x [%s]", _id, to, pr);
 		}
 		else{
 			m.Type = MessageType.MsgApp;
@@ -306,7 +310,7 @@ class Raft
 						pr.pause();
 						break;
 					default:
-						log_error(log_format("%x is sending append in unhandled state %s", _id, pr._State));
+						logError(format("%x is sending append in unhandled state %s", _id, pr._State));
 				}
 			}
 
@@ -372,7 +376,7 @@ class Raft
 	{
 		if(_Term != term)
 		{
-			log_warning(_id , " reset term " , term);
+			logWarning(_id , " reset term " , term);
 			_Term = term;
 			_Vote = None;
 		}
@@ -464,14 +468,14 @@ class Raft
 		_tick = &tickElection;
 		_lead = lead;
 		_state = StateType.StateFollower;
-		log_info(log_format("%x became follower at term %d", _id, _Term));
+		logInfo(format("%x became follower at term %d", _id, _Term));
 	}
 
 	void becomeCandidate()
 	{
 		if(_state == StateType.StateLeader)
 		{
-			log_error("invalid transition [leader -> candidate]");
+			logError("invalid transition [leader -> candidate]");
 		}
 
 		_step = &stepCandidate;
@@ -479,14 +483,14 @@ class Raft
 		_tick = &tickElection;
 		_Vote = _id;
 		_state = StateType.StateCandidate;
-		log_info(log_format("%x became candidate at term %d", _id, _Term));
+		logInfo(format("%x became candidate at term %d", _id, _Term));
 	}
 
 	void becomeLeader()
 	{
 		if(_state == StateType.StateFollower)
 		{
-			log_error("invalid transition [follower -> leader]");
+			logError("invalid transition [follower -> leader]");
 		}
 
 		_step = &stepLeader;
@@ -498,13 +502,13 @@ class Raft
 		auto err = _raftLog.entries(_raftLog._committed + 1, noLimit , ents);
 		if( err != ErrNil)
 		{
-			log_error("unexpected error getting uncommitted entries " , err);
+			logError("unexpected error getting uncommitted entries " , err);
 		}
 
 		auto nconf = numOfPendingConf(ents);
 		if( nconf > 1)
 		{
-			log_error("unexpected multiple uncommitted config entry");
+			logError("unexpected multiple uncommitted config entry");
 		}
 
 		if(nconf == 1)
@@ -513,7 +517,7 @@ class Raft
 
 		Entry[1] ent;
 		appendEntry(ent);
-		log_info(log_format("%x became leader at term %d", _id, _Term));
+		logInfo(format("%x became leader at term %d", _id, _Term));
 	}
 
 	void campaign(CampaignType t)
@@ -551,7 +555,7 @@ class Raft
 			if(id == _id)
 				continue;
 
-			log_info(log_format("%x [logterm: %d, index: %d] sent %s request to %x at term %d",
+			logInfo(format("%x [logterm: %d, index: %d] sent %s request to %x at term %d",
 					_id, _raftLog.lastTerm(), _raftLog.lastIndex(), voteMsg, id, _Term));
 
 			string ctx;
@@ -568,11 +572,11 @@ class Raft
 	{
 		if(v)
 		{
-			log_info(log_format("%x received %s from %x at term %d", _id, t, id, _Term));
+			logInfo(format("%x received %s from %x at term %d", _id, t, id, _Term));
 		}
 		else
 		{
-			log_info(log_format("%x received %s rejection from %x at term %d", _id, t, id, _Term));
+			logInfo(format("%x received %s rejection from %x at term %d", _id, t, id, _Term));
 		}
 
 		auto exist = id in _votes;
@@ -603,7 +607,7 @@ class Raft
 				auto inLease = _checkQuorum && _lead != None && _electionElapsed < _electionTimeout;
 				if( !force && inLease)
 				{
-					log_info(log_format("%x [logterm: %d, index: %d, vote: %x] ignored %s from %x [logterm: %d, index: %d] at term %d: lease is not expired (remaining ticks: %d)",
+					logInfo(format("%x [logterm: %d, index: %d, vote: %x] ignored %s from %x [logterm: %d, index: %d] at term %d: lease is not expired (remaining ticks: %d)",
 							_id, _raftLog.lastTerm(), _raftLog.lastIndex(), _Vote, m.Type, m.From, m.LogTerm, m.Index,
 							_Term, _electionTimeout-_electionElapsed));
 				}
@@ -613,7 +617,7 @@ class Raft
 			if(m.Type == MessageType.MsgPreVote){}
 			else if(m.Type == MessageType.MsgPreVoteResp && !m.Reject){}
 			else{
-				log_info(log_format("%x [term: %d] received a %s message with higher term from %x [term: %d]",
+				logInfo(format("%x [term: %d] received a %s message with higher term from %x [term: %d]",
 							_id, _Term, m.Type, m.From, m.Term));
 					becomeFollower(m.Term , lead);
 			}
@@ -628,7 +632,7 @@ class Raft
 			}
 			else
 			{
-				log_info(log_format("%x [term: %d] ignored a %s message with lower term from %x [term: %d]",
+				logInfo(format("%x [term: %d] ignored a %s message with lower term from %x [term: %d]",
 						_id, _Term, m.Type, m.From, m.Term));
 			}
 
@@ -644,18 +648,18 @@ class Raft
 					auto err = _raftLog.slice(_raftLog._applied + 1 , _raftLog._committed + 1, noLimit , ents);
 					if( err != ErrNil)
 					{
-						log_error("unexpected error getting unapplied entries", err);
+						logError("unexpected error getting unapplied entries", err);
 					}
 
 					auto n = numOfPendingConf(ents);
 					if( n != 0 && _raftLog._committed > _raftLog._applied)
 					{
-						log_warning(log_format("%x cannot campaign at term %d since there are still %d pending configuration changes to apply",
+						logWarning(format("%x cannot campaign at term %d since there are still %d pending configuration changes to apply",
 							_id, _Term, n));
 						return ErrNil;
 					}
 
-					log_info(log_format("%x is starting a new election at term %d", _id, _Term));
+					logInfo(format("%x is starting a new election at term %d", _id, _Term));
 
 					if(_preVote)
 						campaign(campaignPreElection);
@@ -666,7 +670,7 @@ class Raft
 				}
 				else
 				{
-					log_debug("%x ignoring MsgHup because already leader", _id);
+					logDebug("%x ignoring MsgHup because already leader", _id);
 				}
 			
 				break;
@@ -674,7 +678,7 @@ class Raft
 				if( (_Vote == None || m.Term > _Term || _Vote == m.From) && _raftLog.isUpToDate(m.Index ,
 						m.LogTerm))
 				{
-					log_info(log_format("%x [logterm: %d, index: %d, vote: %x] cast %s for %x [logterm: %d, index: %d] at term %d",
+					logInfo(format("%x [logterm: %d, index: %d, vote: %x] cast %s for %x [logterm: %d, index: %d] at term %d",
 							_id, _raftLog.lastTerm(), _raftLog.lastIndex(), _Vote, m.Type, m.From, m.LogTerm, m.Index, _Term));
 				
 					Message msg = {To:m.From , Term:m.Term , Type : voteRespMsgType(m.Type)};
@@ -687,7 +691,7 @@ class Raft
 				}
 				else
 				{
-					log_info(log_format("%x [logterm: %d, index: %d, vote: %x] rejected %s from %x [logterm: %d, index: %d] at term %d",
+					logInfo(format("%x [logterm: %d, index: %d, vote: %x] rejected %s from %x [logterm: %d, index: %d] at term %d",
 							_id, _raftLog.lastTerm(), _raftLog.lastIndex(), _Vote, m.Type, m.From, m.LogTerm, m.Index, _Term));
 				
 					Message msg = {To: m.From ,
@@ -712,14 +716,14 @@ class Raft
 			case MessageType.MsgCheckQuorum:
 				if( !checkQuorumActive())
 				{
-					log_warning(_id , " stepped down to follower since quorum is not active");
+					logWarning(_id , " stepped down to follower since quorum is not active");
 					becomeFollower(_Term , None);
 				}
 				return;
 			case MessageType.MsgProp:
 				if(m.Entries.length == 0)
 				{
-					log_error(_id ," stepped empty MsgProp");
+					logError(_id ," stepped empty MsgProp");
 				}
 
 				auto exist = _id in _prs;
@@ -728,7 +732,7 @@ class Raft
 
 				if(_leadTransferee != None)
 				{
-					log_debug(log_format("%x [term %d] transfer leadership to %x is in progress; dropping proposal",
+					logDebug(format("%x [term %d] transfer leadership to %x is in progress; dropping proposal",
 							_id, _Term, _leadTransferee));
 					return;
 				}
@@ -739,7 +743,7 @@ class Raft
 					{
 						if(_pendingConf)
 						{
-							log_info(log_format("propose conf %s ignored since pending unapplied configuration", e));
+							logInfo(format("propose conf %s ignored since pending unapplied configuration", e));
 							Entry en = {Type : EntryType.EntryNormal};
 							m.Entries[i] = en;
 						}
@@ -804,7 +808,7 @@ class Raft
 		auto pr = m.From in _prs;
 		if(pr == null)
 		{
-			log_debug(log_format("%x no progress available for %x", _id, m.From));
+			logDebug(format("%x no progress available for %x", _id, m.From));
 		}
 
 		switch(m.Type)
@@ -814,11 +818,11 @@ class Raft
 
 				if(m.Reject )
 				{
-					log_debug(log_format("%x received msgApp rejection(lastindex: %d) from %x for index %d",
+					logDebug(format("%x received msgApp rejection(lastindex: %d) from %x for index %d",
 						_id, m.RejectHint, m.From, m.Index));
 					if(pr.maybeDecrTo(m.Index , m.RejectHint))
 					{
-						log_debug(log_format("%x decreased progress of %x to [%s]", _id, m.From, pr));
+						logDebug(format("%x decreased progress of %x to [%s]", _id, m.From, pr));
 						if(pr._State == ProgressStateType.ProgressStateReplicate)
 						{
 							pr.becomeProbe();
@@ -836,7 +840,7 @@ class Raft
 						else if(pr._State == ProgressStateType.ProgressStateSnapshot &&
 							pr.needSnapshotAbort())
 						{
-							log_debug("%x snapshot aborted, resumed sending replication messages to %x [%s]", _id, m.From, pr);
+							logDebug("%x snapshot aborted, resumed sending replication messages to %x [%s]", _id, m.From, pr);
 							pr.becomeProbe();
 						}
 						else if(pr._State == ProgressStateType.ProgressStateReplicate)
@@ -853,7 +857,7 @@ class Raft
 
 						if(m.From == _leadTransferee && pr._Match == _raftLog.lastIndex())
 						{
-							log_info(log_format("%x sent MsgTimeoutNow to %x after received MsgAppResp", _id, m.From));
+							logInfo(format("%x sent MsgTimeoutNow to %x after received MsgAppResp", _id, m.From));
 							sendTimeoutNow(m.From);
 						}
 					}
@@ -907,14 +911,14 @@ class Raft
 				if (!m.Reject)
 				{
 					pr.becomeProbe();
-					log_debug(log_format("%x snapshot succeeded, resumed sending replication messages to %x [%s]",
+					logDebug(format("%x snapshot succeeded, resumed sending replication messages to %x [%s]",
 							_id, m.From, pr));
 				}
 				else
 				{
 					pr.snapshotFailure();
 					pr.becomeProbe();
-					log_debug(log_format("%x snapshot failed, resumed sending replication messages to %x [%s]", _id, m.From, pr));
+					logDebug(format("%x snapshot failed, resumed sending replication messages to %x [%s]", _id, m.From, pr));
 				}
 
 				pr.pause();
@@ -924,7 +928,7 @@ class Raft
 				{
 					pr.becomeProbe();
 				}
-				log_debug(log_format("%x failed to send message to %x because it is unreachable [%s]", 
+				logDebug(format("%x failed to send message to %x because it is unreachable [%s]", 
 						_id, m.From, pr));
 				break;
 			case MessageType.MsgTransferLeader:
@@ -934,27 +938,27 @@ class Raft
 				{
 					if( lastLeadTransferee == leadTransferee)
 					{
-						log_info(log_format("%x [term %d] transfer leadership to %x is in progress, ignores request to same node %x",
+						logInfo(format("%x [term %d] transfer leadership to %x is in progress, ignores request to same node %x",
 								_id, _Term, leadTransferee, leadTransferee));
 						return;
 					}
 					abortLeaderTransfer();
-					log_info(log_format("%x [term %d] abort previous transferring leadership to %x", _id, _Term, lastLeadTransferee));
+					logInfo(format("%x [term %d] abort previous transferring leadership to %x", _id, _Term, lastLeadTransferee));
 				}
 
 				if(leadTransferee == _id)
 				{
-					log_debug(_id , " is already leader. Ignored transferring leadership to self");
+					logDebug(_id , " is already leader. Ignored transferring leadership to self");
 					return ;
 				}
 
-				log_info(log_format("%x [term %d] starts to transfer leadership to %x", _id, _Term, leadTransferee));
+				logInfo(format("%x [term %d] starts to transfer leadership to %x", _id, _Term, leadTransferee));
 				_electionElapsed = 0;
 				_leadTransferee = leadTransferee;
 				if(pr._Match == _raftLog.lastIndex())
 				{
 					sendTimeoutNow(leadTransferee);
-					log_info("%x sends MsgTimeoutNow to %x immediately as %x already has up-to-date log",
+					logInfo("%x sends MsgTimeoutNow to %x immediately as %x already has up-to-date log",
 						_id, leadTransferee, leadTransferee);
 				}
 				else
@@ -963,7 +967,7 @@ class Raft
 				}
 				break;
 			default:
-			//	log_info(m.Type);
+			//	logInfo(m.Type);
 		}
 	}
 
@@ -979,7 +983,7 @@ class Raft
 		switch(m.Type)
 		{
 			case MessageType.MsgProp:
-				log_info("%x no leader at term %d; dropping proposal", _id, _Term);
+				logInfo("%x no leader at term %d; dropping proposal", _id, _Term);
 				return;
 			case MessageType.MsgApp:
 				becomeFollower(_Term , m.From);
@@ -994,7 +998,7 @@ class Raft
 				handleSnapshot(m);
 				break;
 			case MessageType.MsgTimeoutNow:
-				log_debug(log_format("%x [term %d state %s] ignored MsgTimeoutNow from %x", _id, _Term, _state, m.From));
+				logDebug(format("%x [term %d state %s] ignored MsgTimeoutNow from %x", _id, _Term, _state, m.From));
 				break;
 			default:
 		}
@@ -1002,7 +1006,7 @@ class Raft
 		if( myVoteRespType == m.Type)
 		{
 			auto gr = poll(m.From , m.Type , !m.Reject);
-			log_info(log_format("%x [quorum:%d] has received %d %s votes and %d vote rejections",
+			logInfo(format("%x [quorum:%d] has received %d %s votes and %d vote rejections",
 					_id, quorum(), gr, m.Type, _votes.length-gr));
 			auto qr = quorum();
 		
@@ -1032,12 +1036,12 @@ class Raft
 			case MessageType.MsgProp:
 				if(_lead == None)
 				{
-					log_info(log_format("%x no leader at term %d; dropping proposal", _id, _Term));
+					logInfo(format("%x no leader at term %d; dropping proposal", _id, _Term));
 					return;
 				}
 				else if(_disProForw)
 				{
-					log_info(log_format("%x not forwarding to leader %x at term %d; dropping proposal", _id, _lead, _Term));
+					logInfo(format("%x not forwarding to leader %x at term %d; dropping proposal", _id, _lead, _Term));
 				}
 
 				m.To = _lead;
@@ -1060,7 +1064,7 @@ class Raft
 				break;
 			case MessageType.MsgTransferLeader:
 				if (_lead == None) {
-					log_info(log_format("%x no leader at term %d; dropping leader transfer msg",
+					logInfo(format("%x no leader at term %d; dropping leader transfer msg",
 							_id, _Term));
 					return;
 				}
@@ -1069,20 +1073,20 @@ class Raft
 				break;
 			case MessageType.MsgTimeoutNow:
 				if (promotable()) {
-					log_info(log_format("%x [term %d] received MsgTimeoutNow from %x and starts an election to get leadership.",
+					logInfo(format("%x [term %d] received MsgTimeoutNow from %x and starts an election to get leadership.",
 							_id, _Term, m.From));
 
 					campaign(campaignTransfer);
 				}
 				else {
 
-					log_info(log_format("%x received MsgTimeoutNow from %x but is not promotable", 
+					logInfo(format("%x received MsgTimeoutNow from %x but is not promotable", 
 							_id, m.From));
 				}
 				break;
 			case MessageType.MsgReadIndex:
 				if (_lead == None) {
-					log_info(log_format("%x no leader at term %d; dropping index reading msg",
+					logInfo(format("%x no leader at term %d; dropping index reading msg",
 							_id, _Term));
 					return;
 				}
@@ -1092,7 +1096,7 @@ class Raft
 
 			case MessageType.MsgReadIndexResp:
 				if (m.Entries.length != 1) {
-					log_error(log_format("%x invalid format of MsgReadIndexResp from %x, entries count: %d",
+					logError(format("%x invalid format of MsgReadIndexResp from %x, entries count: %d",
 									_id, m.From, m.Entries.length));
 					return;
 				}
@@ -1124,7 +1128,7 @@ class Raft
 			ulong term;
 			auto err = _raftLog.term(m.Index , term);
 
-			log_debug(log_format("%s %x [logterm: %d, index: %d] rejected msgApp [logterm: %d, index: %d] from %x",
+			logDebug(format("%s %x [logterm: %d, index: %d] rejected msgApp [logterm: %d, index: %d] from %x",
 					err , _id, _raftLog.zeroTermOnErrCompacted(term , err), m.Index, m.LogTerm, m.Index, m.From));
 
 			Message msg = {To: m.From, Type: MessageType.MsgAppResp,
@@ -1145,12 +1149,12 @@ class Raft
 		auto sterm = m.snap.Metadata.Term;
 		
 		if (restore(m.snap)) {
-			log_info(log_format("%x [commit: %d] restored snapshot [index: %d, term: %d]",
+			logInfo(format("%x [commit: %d] restored snapshot [index: %d, term: %d]",
 					_id, _raftLog._committed, sindex, sterm));
 			Message msg = {To: m.From, Type: MessageType.MsgAppResp, Index: _raftLog.lastIndex()};
 			send(msg);
 		} else {
-			log_info(log_format("%x [commit: %d] ignored snapshot [index: %d, term: %d]",
+			logInfo(format("%x [commit: %d] ignored snapshot [index: %d, term: %d]",
 					_id, _raftLog._committed, sindex, sterm));
 			Message msg = {To: m.From, Type: MessageType.MsgAppResp, Index: _raftLog._committed};
 			send(msg);
@@ -1162,13 +1166,13 @@ class Raft
 			return false;
 		}
 		if (_raftLog.matchTerm(s.Metadata.Index, s.Metadata.Term)) {
-			log_info(log_format("%x [commit: %d, lastindex: %d, lastterm: %d] fast-forwarded commit to snapshot [index: %d, term: %d]",
+			logInfo(format("%x [commit: %d, lastindex: %d, lastterm: %d] fast-forwarded commit to snapshot [index: %d, term: %d]",
 					_id, _raftLog._committed, _raftLog.lastIndex(), _raftLog.lastTerm(), s.Metadata.Index, s.Metadata.Term));
 			_raftLog.commitTo(s.Metadata.Index);
 			return false;
 		}
 		
-		log_info(log_format("%x [commit: %d, lastindex: %d, lastterm: %d] starts to restore snapshot [index: %d, term: %d]",
+		logInfo(format("%x [commit: %d, lastindex: %d, lastterm: %d] starts to restore snapshot [index: %d, term: %d]",
 				_id, _raftLog._committed, _raftLog.lastIndex(), _raftLog.lastTerm(), s.Metadata.Index, s.Metadata.Term));
 
 		_raftLog.restore(s);
@@ -1182,7 +1186,7 @@ class Raft
 			}
 
 			setProgress(n, match, next);
-			log_info(log_format("%x restored progress of %x [%s]", _id, n, _prs[n]));
+			logInfo(format("%x restored progress of %x [%s]", _id, n, _prs[n]));
 		}
 		return true;
 	}
@@ -1238,12 +1242,12 @@ class Raft
 	void loadState( HardState state) {
 		if( state.Commit < _raftLog._committed || state.Commit > _raftLog.lastIndex()) {
 
-			log_error(log_format("%x state.commit %d is out of range [%d, %d]",
+			logError(format("%x state.commit %d is out of range [%d, %d]",
 					_id, state.Commit, _raftLog._committed, _raftLog.lastIndex()));
 
 		}
 		_raftLog._committed = state.Commit;
-		log_warning(_id , " loadState term " , _Term);
+		logWarning(_id , " loadState term " , _Term);
 		_Term = state.Term;
 		_Vote = state.Vote;
 	}
@@ -1254,7 +1258,7 @@ class Raft
 	
 	void resetRandomizedElectionTimeout() {
 		_randomizedElectionTimeout = _electionTimeout + rand()%_electionTimeout;
-		log_info(_id , " resetRandomizedElectionTimeout " , _randomizedElectionTimeout);
+		logInfo(_id , " resetRandomizedElectionTimeout " , _randomizedElectionTimeout);
 	}
 
 	bool checkQuorumActive()  {

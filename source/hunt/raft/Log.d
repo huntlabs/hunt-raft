@@ -1,14 +1,15 @@
-﻿module raft.Log;
+﻿module hunt.raft.Log;
 
-import raft.Storage;
-import raft.Log_unstable;
-import zhang2018.common.Log;
-import protocol.Msg;
-import std.algorithm;
-import raft.Util;
+import hunt.raft.Storage;
+import hunt.raft.Logunstable;
+import hunt.raft.Msg;
+import hunt.raft.Util;
+
+import hunt.logging;
 
 import std.conv;
-
+import std.format;
+import std.algorithm;
 
 class raftLog
 {
@@ -21,7 +22,7 @@ class raftLog
 	{
 		if (storage is null)
 		{
-			log_error("storage must not be nil");
+			logError("storage must not be nil");
 		}
 
 		_storage = storage;
@@ -30,14 +31,14 @@ class raftLog
 		auto err = _storage.FirstIndex(firstIndex);
 		if(err != ErrNil)
 		{
-			log_error(err);
+			logError(err);
 		}
 
 		ulong lastIndex;
 		err = _storage.LastIndex(lastIndex);
 		if(err != ErrNil)
 		{
-			log_error(err);
+			logError(err);
 		}
 
 		_unstable._offset = lastIndex + 1;
@@ -47,7 +48,7 @@ class raftLog
 
 	override string toString()
 	{
-		return log_format("committed=%d, applied=%d, unstable.offset=%d, len(unstable.Entries)=%d",
+		return format("committed=%d, applied=%d, unstable.offset=%d, len(unstable.Entries)=%d",
 			_committed, _applied, _unstable._offset, _unstable._entries.length);
 	}
 
@@ -60,7 +61,7 @@ class raftLog
 			if( ci == 0){ }
 			else if(ci <= _committed)
 			{
-				log_error(log_format("entry %d conflict with committed entry [committed(%d)]", ci, _committed));
+				logError(format("entry %d conflict with committed entry [committed(%d)]", ci, _committed));
 			}
 			else
 			{
@@ -82,7 +83,7 @@ class raftLog
 		auto after = ents[0].Index - 1;
 		if(after < _committed)
 		{
-			log_error(log_format("after(%d) is out of range [committed(%d)]", after, _committed));
+			logError(format("after(%d) is out of range [committed(%d)]", after, _committed));
 		}
 
 		_unstable.truncateAndAppend(ents);
@@ -97,7 +98,7 @@ class raftLog
 				if(ne.Index <= lastIndex()){
 					ulong t;
 					auto err = term(ne.Index , t);
-					log_info("found conflict at index %d [existing term: %d, conflicting term: %d]",
+					logInfo("found conflict at index %d [existing term: %d, conflicting term: %d]",
 						ne.Index, zeroTermOnErrCompacted(t , err), ne.Term);
 				}
 
@@ -121,7 +122,7 @@ class raftLog
 			auto err = slice(off , _committed + 1, noLimit , ents);
 			if(err != ErrNil)
 			{
-				log_error(log_format("unexpected error when getting unapplied entries (%s)", err));
+				logError(format("unexpected error when getting unapplied entries (%s)", err));
 			}
 			return ents;
 		}
@@ -153,7 +154,7 @@ class raftLog
 
 		auto err = _storage.FirstIndex(index);
 		if (err != ErrNil) {
-			log_error(err);
+			logError(err);
 		}
 		return index;
 	}
@@ -168,7 +169,7 @@ class raftLog
 		
 		auto err = _storage.LastIndex(index);
 		if(err != ErrNil){
-			log_error(err);
+			logError(err);
 		}
 		return index;
 	}
@@ -177,7 +178,7 @@ class raftLog
 	
 		if (_committed < tocommit) {
 			if (lastIndex() < tocommit) {
-				log_error(log_format("tocommit(%d) is out of range [lastIndex(%d)]. Was the raft log corrupted, truncated, or lost?", tocommit, lastIndex()));
+				logError(format("tocommit(%d) is out of range [lastIndex(%d)]. Was the raft log corrupted, truncated, or lost?", tocommit, lastIndex()));
 			}
 			_committed = tocommit;
 		}
@@ -188,7 +189,7 @@ class raftLog
 			return;
 		}
 		if (_committed < i || i < _applied) {
-			log_error(log_format("applied(%d) is out of range [prevApplied(%d), committed(%d)]", i, _applied, _committed));
+			logError(format("applied(%d) is out of range [prevApplied(%d), committed(%d)]", i, _applied, _committed));
 		}
 		_applied = i;
 	}
@@ -206,7 +207,7 @@ class raftLog
 		ulong t;
 		auto err = term(lastIndex() , t);
 		if( err != ErrNil) {
-			log_error(log_format("unexpected error when getting the last term (%s)", err));
+			logError(format("unexpected error when getting the last term (%s)", err));
 		}
 		return t;
 	}
@@ -236,7 +237,7 @@ class raftLog
 			term = 0;
 			return err;
 		}
-		log_error(err);
+		logError(err);
 		return ErrNil;
 	}
 
@@ -261,7 +262,7 @@ class raftLog
 			return allEntries();
 		}
 
-		log_error(err);
+		logError(err);
 		return null;
 	}
 	
@@ -295,7 +296,7 @@ class raftLog
 
 	void restore(Snapshot ss)
 	{
-		log_info(log_format("log [%s] starts to restore snapshot [index: %d, term: %d]",
+		logInfo(format("log [%s] starts to restore snapshot [index: %d, term: %d]",
 				to!string(this.toHash()), ss.Metadata.Index, ss.Metadata.Term));
 		_committed = ss.Metadata.Index;
 		_unstable.restore(ss);
@@ -325,12 +326,12 @@ class raftLog
 			}
 			else if(err == ErrUnavailable)
 			{	
-				log_error(log_format("entries[%d:%d) is unavailable from storage", 
+				logError(format("entries[%d:%d) is unavailable from storage", 
 					lo, min(hi, _unstable._offset)));
 			}
 			else if(err != ErrNil)
 			{
-				log_error(err);
+				logError(err);
 			}
 
 			if(store.length < min(hi , _unstable._offset) - lo)
@@ -359,7 +360,7 @@ class raftLog
 	{
 		if(lo > hi)
 		{
-			log_error(log_format("invalid slice %d > %d", lo, hi));
+			logError(format("invalid slice %d > %d", lo, hi));
 		}
 
 		ulong fi = firstIndex();
@@ -370,7 +371,7 @@ class raftLog
 		auto length = lastIndex() + 1 - fi;
 		if(lo < fi || hi > fi + length)
 		{
-			log_error(log_format("slice[%d,%d) out of bound [%d,%d]", lo, hi, fi, lastIndex()));
+			logError(format("slice[%d,%d) out of bound [%d,%d]", lo, hi, fi, lastIndex()));
 		}
 
 		return ErrNil;
@@ -387,7 +388,7 @@ class raftLog
 			return 0;
 		}
 
-		log_error(log_format("unexpected error (%s)", err));
+		logError(format("unexpected error (%s)", err));
 		return 0;
 	}
 }

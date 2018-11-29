@@ -1,4 +1,4 @@
-﻿module protocol.Msg;
+﻿module hunt.raft.Msg;
 
 enum EntryType {
 	EntryNormal     = 0,

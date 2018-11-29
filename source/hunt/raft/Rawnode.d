@@ -1,14 +1,15 @@
-﻿module raft.Rawnode;
+﻿module hunt.raft.Rawnode;
 
-import raft.Raft;
-import raft.Node;
-import protocol.Msg;
-import raft.Log;
-import zhang2018.common.Log;
-import raft.Status;
-import raft.Storage;
-import zhang2018.common.Serialize;
-import raft.Util;
+import hunt.raft.Raft;
+import hunt.raft.Node;
+import hunt.raft.Msg;
+import hunt.raft.Log;
+import hunt.raft.Status;
+import hunt.raft.Storage;
+import hunt.raft.Util;
+
+import hunt.logging;
+import hunt.util.serialize;
 
 enum ErrStepLocalMsg = "raft: cannot step raft local message";
 enum ErrStepPeerNotFound = "raft: cannot step as peer not found";
@@ -77,7 +78,7 @@ class RawNode
 	{
 		if( c._ID == 0)
 		{
-			log_error("config.ID must not be zero");
+			logError("config.ID must not be zero");
 		}
 		auto r = new Raft(c);
 
@@ -85,7 +86,7 @@ class RawNode
 		auto err = c._storage.LastIndex(lastIndex);
 		if( err != ErrNil)
 		{
-			log_error(err);
+			logError(err);
 		}
 
 		if( lastIndex == 0)
@@ -175,7 +176,7 @@ class RawNode
 				_raft.resetPendingConf();
 				break;
 			default:
-				log_error("unexpected conf type");
+				logError("unexpected conf type");
 		}
 
 		ConfState cs = {Nodes : _raft.nodes()};

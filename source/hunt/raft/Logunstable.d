@@ -1,8 +1,11 @@
-﻿module raft.Log_unstable;
+﻿module hunt.raft.Logunstable;
 
-import protocol.Msg;
-import zhang2018.common.Log;
+import hunt.raft.Msg;
+
+import hunt.logging;
+
 import std.experimental.allocator;
+import std.format;
 
 class unstable
 {
@@ -126,12 +129,12 @@ class unstable
 		}
 		else if(after <= _offset)
 		{
-			log_info("replace the unstable entries from index " , after);
+			logInfo("replace the unstable entries from index " , after);
 			_entries = ents;
 			_offset = after;
 		}
 		else{
-			log_info("truncate the unstable entries before index " , after);
+			logInfo("truncate the unstable entries before index " , after);
 			_entries = slice(_offset , after);
 			_entries ~= ents;
 		}
@@ -148,13 +151,13 @@ class unstable
 	{
 		if( lo > hi)
 		{
-			log_error(log_format("invalid unstable.slice %d > %d", lo, hi));
+			logError(format("invalid unstable.slice %d > %d", lo, hi));
 		}
 
 		auto upper = _offset + _entries.length;
 		if( lo < _offset || hi > upper)
 		{
-			log_error(log_format("unstable.slice[%d,%d) out of bound [%d,%d]", lo, hi, 
+			logError(format("unstable.slice[%d,%d) out of bound [%d,%d]", lo, hi, 
 					_offset, upper));
 		}
 	}

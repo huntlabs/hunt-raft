@@ -8,7 +8,7 @@
     ],
     "license": "Apache-2.0",
 	"dependencies":{
-		"hunt-net": "~>0.0.8",
+		"hunt-net": {"path":"../../../hunt-net"},
 		"hunt-raft":{"path" :"../../"}
 	}
 

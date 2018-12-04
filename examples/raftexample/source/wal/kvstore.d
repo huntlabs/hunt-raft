@@ -26,6 +26,12 @@ struct kv
 class kvstore
 {
 
+	struct HardEntry
+	{
+		HardState 	hs;
+		Entry[] 	entries;
+	}
+
 
 	byte[] getFileContent(string filename)
 	{
@@ -52,7 +58,7 @@ class kvstore
 
 
 
-	bool load(string snapPath , string entryPath ,
+	bool load(string snapPath , string entryPath , string hsPath,
 		out Snapshot* snap , out HardState hs  , out Entry[] entries)
 	{
 		byte[] snapData = getFileContent(snapPath);
@@ -65,22 +71,25 @@ class kvstore
 
 		_snappath = snapPath;
 		_entrypath = entryPath;
+		_hspath = hsPath;
 
+		byte[] hsData = getFileContent(hsPath);
+		if(hsData.length > 0)
+		{	
+			hs = unserialize!HardState(hsData);
+			logInfo("load " , hs);
+		}
 		byte[] entryData = getFileContent(entryPath);
 		if(entryData.length > 0)
-		{
-			long parse_index;
-			logInfo(_entrypath , " load " , entryData.length);
-			hs = unserialize!HardState(entryData , parse_index);
-			logInfo(_entrypath , " load " , hs , " " , parse_index , " " , entryData.length);
-			if(parse_index < entryData.length)
-			{
-				entries = unserialize!(Entry[])(entryData[parse_index .. $]);	
-				logInfo(_entrypath , " load " , entries );
-			}
-			return true;
+		{	
+			entries = unserialize!(Entry[])(entryData);
+			logInfo("load " , entries);
 		}
-		return false;
+
+		if(entryData.length == 0)
+			return false;
+		else
+			return true;
 
 	}
 
@@ -94,70 +103,26 @@ class kvstore
 		if(IsEmptyHardState(hs) && entries.length == 0)
 			return;
 
-		if(!_entryfd.isOpen())
-		{
-			if(exists(_entrypath))
-			{
-				_entryfd = File(_entrypath , "rb+");
-			}
-			else
-			{
-				_entryfd = File(_entrypath , "wb+");
-			}
-		}
-
 		if(!IsEmptyHardState(hs))
 		{	
-			_entryfd.seek(0 , SEEK_SET);
-			_entryfd.rawWrite(serialize(hs));
-			_entryfd.flush();
-			logInfo(_entrypath , " " , hs);
+			logInfo("save " , hs);
+			saveFileContent(_hspath , serialize(hs));
 		}
 
+		Entry[] newEntries;
+		
 		if(entries.length > 0)
-		{
-			_entryfd.seek(0 , SEEK_SET);
-			byte[3] structHeader;
-			byte[] header = _entryfd.rawRead(structHeader);
-			ushort len;
-			memcpy(&len , header.ptr + 1 , 2);
-			_entryfd.seek(len  , SEEK_CUR);
-
-			byte[7]	arrayHeader;
-			header = _entryfd.rawRead(arrayHeader);
-
-			logInfo(_entrypath , " " , entries);
-
-			if(header.length == 0)	//first.
-			{
-				_entryfd.seek(0 , SEEK_END);
-				_entryfd.rawWrite(serialize(entries));
-				_entryfd.flush();
-				return ;
+		{	
+			byte[] entryData = getFileContent(_entrypath);
+			if(entryData.length > 0)
+			{	
+				newEntries ~= unserialize!(Entry[])(entryData);
 			}
-
-			ushort size;
-			uint length;
-			memcpy(&size , header.ptr + 1 , 2);
-			memcpy(&length , header.ptr + 3 , 4);
-			byte[] arrayData = serialize(entries);
-			size += entries.length;
-			length += arrayData.length;
-
-			memcpy(header.ptr + 1 , &size , 2);
-			memcpy(header.ptr + 3 , &length , 4);
-
-
-
-			_entryfd.seek(-7 , SEEK_CUR);
-			_entryfd.rawWrite(header);
-			_entryfd.seek(0 , SEEK_END);
-			_entryfd.rawWrite(arrayData[7 .. $]);
-			_entryfd.flush();
+			newEntries ~= entries;
+			logInfo("save " , newEntries);
+			saveFileContent(_entrypath , serialize(newEntries));
 		}
-
-
-
+		
 		
 	}
 
@@ -184,6 +149,7 @@ class kvstore
 	private JSONValue _json;
 	private string  _entrypath;
 	private string _snappath;
+	private string _hspath;
 	private File	_entryfd;
 
 }

@@ -4,6 +4,9 @@
 import network.node;
 import hunt.logging;
 import std.conv;
+import std.stdio;
+
+import core.thread;
 
 int main(string[] argv)
 {
@@ -14,9 +17,12 @@ int main(string[] argv)
 		return -1;
 	}
 	ulong ID = to!ulong(argv[1]);
+	LogConf conf;
+	conf.fileName = "example.log";
+	logLoadConf(conf);
 	node.instance.start(ID , argv[2] , argv[3], to!bool(argv[4]));
-	node.instance.wait();
-	return 0;
+	while(1)
+		Thread.sleep(dur!"seconds"(1));
 }
 
 

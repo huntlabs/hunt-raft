@@ -10,11 +10,19 @@ import network.http;
 import hunt.raft;
 import hunt.logging;
 import hunt.util.serialize;
+import hunt.util.timer;
+import hunt.net;
 
 import std.string;
 import std.conv;
 import std.format;
 
+import core.thread;
+import core.sync.mutex;
+
+
+alias Server = network.server.Server;
+alias Client = network.client.Client;
 enum defaultSnapCount = 10000;
 enum snapshotCatchUpEntriesN = 10000;
 
@@ -24,7 +32,7 @@ class node
 
 	this()
 	{
-
+		_mutex = new Mutex();
 	}
 
 	void publishSnapshot(Snapshot snap)
@@ -203,7 +211,7 @@ class node
 		HardState hs;
 		Entry[] ents;
 	
-		bool exist = _kvs.load("snap.log" ~ to!string(ID) , "entry.log" ~ to!string(ID), shot , hs  , ents);
+		bool exist = _kvs.load("snap.log" ~ to!string(ID) , "entry.log" ~ to!string(ID), "hs.log" ~ to!string(ID),  shot , hs  , ents);
 		if(shot != null)
 		{
 			_storage.ApplySnapshot(*shot);
@@ -228,7 +236,6 @@ class node
 
 	
 		_ID	 			= ID;
-//		_poll 			= new Epoll();
 		_buffer.length 	= 1024;
 
 		string[] peerstr = split(cluster , ";");
@@ -254,17 +261,17 @@ class node
 			logInfo(_ID , " " , peers);
 		}
 
-		/*_http = new AsyncTcpServer!(http , byte[])(_poll , _buffer);
-		_http.open("0.0.0.0" , to!ushort(apiport));
+		_http = new Server!HttpBase(ID);
+		_http.listen("0.0.0.0" , to!int(apiport));
 
 		for(uint i = 0 ; i < peers.length ; i++)
 		{
 			//server
 			if(i + 1 == ID)
 			{
-				_server = new AsyncTcpServer!(base ,ulong, byte[])(_poll , ID , _buffer);
+				_server = new Server!Base(ID);
 				string[] hostport = split(peerstr[i] ,":");
-				_server.open(hostport[0] , to!ushort(hostport[1]));
+				_server.listen(hostport[0] , to!int(hostport[1]));
 				logInfo(ID , " server open " , hostport[0] , " " , hostport[1]);
 			}
 			//client
@@ -273,8 +280,27 @@ class node
 				addPeer(i + 1 , peerstr[i]);
 			}
 		}
-		_poll.addFunc(&ready);
+		
+		new Thread((){
+			while(1)
+			{
+				ready();
+				Thread.sleep(dur!"msecs"(1));
+			}
+		}).start();
+		
+		new Thread((){
+			while(1){
+				onTimer();
+				Thread.sleep(dur!"msecs"(100));
+			}
+		}).start();
+	
+		NetUtil.startEventLoop(-1);
 
+		/*_poll.addFunc(&ready);
+
+		
 		_poll.addTimer(&onTimer , 100 , WheelType.WHEEL_PERIODIC);
 
 		_poll.start();*/
@@ -285,11 +311,18 @@ class node
 	{
 		if(ID in _clients)
 			return false;
-		/*
-		_clients[ID] = new client(_poll , _ID , ID);
+		
+		auto client = new Client(_ID , ID);
 		string[] hostport = split(data , ":");
-		_clients[ID].open(hostport[0] , to!ushort(hostport[1]));
-		logInfo(_ID , " client connect " , hostport[0] , " " , hostport[1]);*/
+		client.connect(hostport[0] , to!int(hostport[1]) , (Result!NetSocket result){
+			if(result.failed()){
+				addPeer(ID , data);
+				return;
+			}
+			_clients[ID] = client;
+			logInfo(_ID , " client connect " , hostport[0] , " " , hostport[1]);
+		});
+		
 		return true;
 	}
 
@@ -298,9 +331,9 @@ class node
 		if(ID !in _clients)
 			return false;
 
-		/*logInfo(_ID , " client disconnect " , ID);
-		_clients[ID].close(true);
-		_clients.remove(ID);*/
+		logInfo(_ID , " client disconnect " , ID);
+		_clients[ID].close();
+		_clients.remove(ID);
 		
 		return true;
 	}
@@ -318,16 +351,24 @@ class node
 
 	void Step(Message msg)
 	{
+		_mutex.lock();
 		_node.Step(msg);
+		_mutex.unlock();
 	}
 
-/*	void onTimer(TimerFd fd )
+	void onTimer()
 	{
+		_mutex.lock();
 		_node.Tick();
+		_mutex.unlock();
 	}
-*/
+
 	void ready()
 	{
+		_mutex.lock();
+		scope(exit){
+			_mutex.unlock();
+		}
 		Ready rd = _node.ready();
 		if(!rd.containsUpdates())
 		{
@@ -344,6 +385,7 @@ class node
 		send(rd.Messages);
 		if(!publishEntries(entriesToApply(rd.CommittedEntries)))
 		{
+			logError("will stop");
 //			_poll.stop();
 			return;
 		}
@@ -370,7 +412,7 @@ class node
 		
 		maybeTriggerSnapshot();
 		_node.Advance(rd);
-
+		
 	}
 
 	static node instance()
@@ -395,6 +437,7 @@ class node
 	ulong									_snapshotIndex;
 	ulong									_appliedIndex;
 
-	HttpBase[ulong]								_request;
+	Mutex									_mutex;									
+	HttpBase[ulong]							_request;
 }
 

@@ -2,10 +2,6 @@
 
 etcd/contrib/raftexample implement by dlang .
 
-show how to use raft lib @ https://github.com/huntlabs/raft .
-
-dependencies network dreactor lib @ https://github.com/zhangyuchun/dreactor
-
 ./restart.sh  will delete snap & entry , recreate distributed server.
 
 ./start.sh    go on distributed server using entry & sanp.

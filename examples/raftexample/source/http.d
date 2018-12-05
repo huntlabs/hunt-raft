@@ -1,14 +1,15 @@
-module network.http;
+module app.http;
 
 
 
 import hunt.net;
 import hunt.raft;
 
-import network.node;
+import app.raft;
 import std.string;
 import std.conv;
 import std.format;
+
 
 
 enum RequestMethod
@@ -28,17 +29,22 @@ struct RequestCommand
 
 enum MAX_HTTP_REQUEST_BUFF = 4096;
 
+alias Raft = app.raft.Raft;
+
 class HttpBase 
 {
-	this(NetSocket sock)
+	this(NetSocket sock, Raft raft )
 	{
         this.sock = sock;
+		this.raft = raft;
         sock.handler((in ubyte[] data){
 			onRead(data);
 		});
         sock.closeHandler((){
 			onClose();
 		});
+
+
 	}
 
 	bool is_request_finish(ref bool finish, ref string url , ref string strbody)
@@ -126,7 +132,7 @@ class HttpBase
 				return do_response("params key must not empty");
 
 			RequestCommand command = { Method:RequestMethod.METHOD_GET , Key: *key , Hash:this.toHash()};
-			node.instance().ReadIndex(command , this);
+			raft.readIndex(command , this);
 			return true;
 		}
 		else if(path == "/set")
@@ -138,7 +144,7 @@ class HttpBase
 				return do_response("params key  must not empty or value not exist");
 
 			RequestCommand command = { Method:RequestMethod.METHOD_SET , Key: *key ,Value : *value , Hash:this.toHash()};
-			node.instance().Propose(command , this);
+			raft.propose(command , this);
 			return true;
 		}
 		else if(path == "/add")
@@ -151,7 +157,7 @@ class HttpBase
 				return do_response("ID or Context must not empty");
 
 			ConfChange cc = { NodeID : to!ulong(*nodeID) , Type : ConfChangeType.ConfChangeAddNode ,Context:*Context };
-			node.instance().ProposeConfChange(cc);
+			raft.proposeConfChange(cc);
 			return do_response("have request this add conf");
 			
 		}
@@ -161,7 +167,7 @@ class HttpBase
 			if(nodeID == null || nodeID.length == 0)
 				return do_response("ID must not empty");
 			ConfChange cc = { NodeID : to!ulong(*nodeID) , Type : ConfChangeType.ConfChangeRemoveNode };
-			node.instance().ProposeConfChange(cc);
+			raft.proposeConfChange(cc);
 			return do_response("have request this remove conf");
 		}
 		else
@@ -199,11 +205,11 @@ class HttpBase
 	}
 
 	void onClose() {
-
-		node.instance().delPropose(this);
+		raft.delPropose(this);
 	}
 
     ubyte[]         buffer;
 	NetSocket       sock;
+	Raft			raft;
 }
 

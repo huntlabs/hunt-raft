@@ -1,15 +1,17 @@
-module network.server;
+module common.network.server;
 
 import hunt.net;
-import network.base;
+import common.network.base;
 
 import hunt.logging;
+import common.network.api;
 
-class Server(T)
+class Server(T,A...)
 {
-    this(ulong ID)
+    this(ulong ID , A args)
     {
         this.ID = ID;
+        this.args = args;
         server = NetUtil.createNetServer();
     }
 
@@ -21,7 +23,7 @@ class Server(T)
                 throw result.cause();
         });
         server.connectionHandler((NetSocket sock){
-            auto context = new T(sock);
+            auto context = new T(sock,args);
             auto tcp = cast(AsynchronousTcpSession)sock;
             tcp.attachObject(context);
             logInfo(ID , " have a connection");
@@ -29,7 +31,7 @@ class Server(T)
 
     }
 
-
-    ulong       ID;
-    NetServer   server;
+    A				args;
+    ulong           ID;
+    NetServer       server;
 }

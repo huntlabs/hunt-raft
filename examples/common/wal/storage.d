@@ -1,4 +1,4 @@
-﻿module wal.kvstore;
+﻿module common.wal.storage;
 
 
 import hunt.raft;
@@ -14,6 +14,8 @@ import std.json;
 import std.experimental.allocator;
 import std.file;
 
+import common.wal.api;
+
 
 struct kv
 {
@@ -23,14 +25,8 @@ struct kv
 
 
 
-class kvstore
+class Storage : DataStorage
 {
-
-	struct HardEntry
-	{
-		HardState 	hs;
-		Entry[] 	entries;
-	}
 
 
 	byte[] getFileContent(string filename)
@@ -93,7 +89,7 @@ class kvstore
 
 	}
 
-	void savesnap(Snapshot shot)
+	void saveSnap(Snapshot shot)
 	{
 		saveFileContent(_snappath , serialize(shot));
 	}
@@ -141,9 +137,9 @@ class kvstore
 		return string.init;
 	}
 
-	byte[] getSnapshot()
+	string getSnapData()
 	{
-		return cast(byte[])_json.toString();
+		return _json.toString();
 	}
 
 	private JSONValue _json;
@@ -154,8 +150,3 @@ class kvstore
 
 }
 
-unittest
-{
-
-
-}

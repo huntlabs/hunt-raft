@@ -1,17 +1,17 @@
-module network.client;
+module common.network.client;
 
 import hunt.logging;
 import hunt.util.serialize;
 import hunt.raft;
 import hunt.net;
 import core.stdc.string;
-import network.node;
+import common.network;
 import core.thread;
 
 import std.bitmanip;
 import std.stdint;
 
-class Client 
+class Client : MessageTransfer
 {
     ///
 	this(ulong srcID , ulong dstID)

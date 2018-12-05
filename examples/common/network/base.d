@@ -1,4 +1,4 @@
-module network.base;
+module common.network.base;
 
 import hunt.logging;
 import hunt.util.serialize;
@@ -8,7 +8,7 @@ import hunt.raft;
 
 import core.stdc.string;
 
-import network.node;
+import common.network.api;
 
 import std.bitmanip;
 import std.stdint;
@@ -18,9 +18,10 @@ class Base
 
     enum PACK_HEAD_LEN = 4;
 
-    this(NetSocket sock)
+    this( NetSocket sock , MessageReceiver receiver)
     {
         this.sock = sock;
+        this.receiver = receiver;
         sock.handler((in ubyte[] data){
             onRead(data);
         });
@@ -83,7 +84,8 @@ class Base
 
         foreach(m ; msgs)
         {
-            node.instance.Step(m);
+            //logDebug("recv a message " , m);
+            receiver.step(m);
         }
 
 
@@ -93,11 +95,13 @@ class Base
     {
 
     }
+  
 
-    NetSocket   sock;
+    NetSocket                   sock;
 
     int                         msgLen;
     ubyte[]			            buffer;	
     int				            headLen = 0;
 	ubyte[PACK_HEAD_LEN]		header;
+    MessageReceiver             receiver;
 }

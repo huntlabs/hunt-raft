@@ -152,7 +152,9 @@ class GroupRaft : MessageReceiver
 		
 		}
 
-		logInfo(_clients , _rafts);
+		logInfo(_clients , " " , _rafts);
+
+		
 
 	        /// ready
         new Thread((){
@@ -216,6 +218,7 @@ class GroupRaft : MessageReceiver
 
 	void send(Message[] msg)
 	{
+		//logInfo(msg);
 		foreach(m ; msg)
 		{
 			ulong ID = m.To / 10;

@@ -3,7 +3,7 @@
 
 import hunt.raft;
 
-import hunt.util.serialize;
+import hunt.util.Serialize;
 import hunt.logging;
 
 import core.stdc.stdio;

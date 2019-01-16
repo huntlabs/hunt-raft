@@ -6,7 +6,7 @@ import common.raft.node;
 
 import hunt.raft;
 import hunt.logging;
-import hunt.util.serialize;
+import hunt.util.Serialize;
 import hunt.util.timer;
 import hunt.net;
 

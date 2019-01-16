@@ -6,6 +6,6 @@
     "description": "Raft distributed consensus protocol in D programming language.",
     "license": "Apache-2.0",	
     "dependencies": {
-        "hunt":"~>1.0.0-rc.6"
+        "hunt":"~>1.0.0"
     }
 }

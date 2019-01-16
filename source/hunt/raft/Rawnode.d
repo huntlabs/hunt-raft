@@ -9,7 +9,7 @@ import hunt.raft.Storage;
 import hunt.raft.Util;
 
 import hunt.logging;
-import hunt.util.serialize;
+import hunt.util.Serialize;
 
 enum ErrStepLocalMsg = "raft: cannot step raft local message";
 enum ErrStepPeerNotFound = "raft: cannot step as peer not found";

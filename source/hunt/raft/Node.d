@@ -7,7 +7,7 @@ import hunt.raft.Readonly;
 import hunt.raft.Status;
 import hunt.raft.Util;
 
-import hunt.util.serialize;
+import hunt.util.Serialize;
 import hunt.logging;
 
 import std.container;

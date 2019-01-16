@@ -4,7 +4,7 @@ import hunt.raft.Msg;
 import hunt.raft.Node;
 
 import hunt.logging;
-import hunt.util.serialize;
+import hunt.util.Serialize;
 
 import std.format;
 

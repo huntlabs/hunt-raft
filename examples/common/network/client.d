@@ -1,7 +1,7 @@
 module common.network.client;
 
 import hunt.logging;
-import hunt.util.serialize;
+import hunt.util.Serialize;
 import hunt.raft;
 import hunt.net;
 import core.stdc.string;
